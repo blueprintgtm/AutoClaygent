@@ -1,0 +1,7 @@
+# Session files (created during usage)
+.first_run_complete
+results/
+projects/
+
+# Don't track actual license keys (only the placeholder)
+# Note: license.key placeholder IS tracked, but if modified with real key, ignore changes

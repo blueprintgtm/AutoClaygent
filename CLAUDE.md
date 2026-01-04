@@ -95,29 +95,36 @@ cat license.key 2>/dev/null || echo "NO_LICENSE"
 
 ## MODE 3: CONTENT FETCH (Every Session)
 
-Use WebFetch to retrieve the premium workflow from the API:
+Fetch premium workflow content from the API using `curl` (NOT WebFetch - it doesn't support auth headers).
 
 **API Base URL:** `https://api.autoclaygent.blueprintgtm.com/api/content`
 
-```
-WebFetch URL: https://api.autoclaygent.blueprintgtm.com/api/content/workflow
-Prompt: "Return the raw markdown content exactly as received"
-Headers: { "Authorization": "Bearer <license_key>" }
+```bash
+# Read the license key
+LICENSE_KEY=$(cat license.key)
+
+# Fetch the workflow (MUST use curl, not WebFetch)
+curl -s -H "Authorization: Bearer $LICENSE_KEY" \
+  "https://api.autoclaygent.blueprintgtm.com/api/content/workflow"
 ```
 
-**Handle API errors:**
+**IMPORTANT:** WebFetch does NOT support custom Authorization headers. Always use `curl` via Bash for API calls.
+
+**Handle API errors (check HTTP status code):**
 - 401 (Unauthorized): "Your license key is invalid. Please check your license.key file"
 - 403 (Forbidden): "Your license has been revoked or refunded. Contact support@blueprintgtm.com"
 - 429 (Rate Limited): "You've made many requests today. Try again in a few hours, or contact support."
 - 5xx (Server Error): "The content server is temporarily unavailable. Try again in a few minutes."
 
-**Additional content endpoints (fetch as needed):**
+**Additional content endpoints (fetch as needed with curl):**
 - `GET /api/content/patterns` - 9 production-ready Claygent patterns
 - `GET /api/content/rubric` - 7-dimension evaluation scoring
 - `GET /api/content/references` - Prompt engineering best practices
 - `GET /api/content/examples/tech-stack` - Tech stack detection example
 - `GET /api/content/examples/contact-discovery` - Contact discovery example
 - `GET /api/content/examples/company-research` - Company research example
+
+See `references/content-api.md` for full API documentation.
 
 ---
 

@@ -458,8 +458,39 @@ Once ALL tests pass, tell user:
 
 ================================================================================
 
-Now let's build your Claygent! What are you trying to find out about companies?
+Now tell me what you're trying to accomplish — I'll check if Clay has a native
+integration first, or we'll build a custom Claygent if needed.
+
+What data do you need to find or enrich?
 ```
+
+---
+
+## PRE-BUILD CHECK: Native Integrations (Before Every New Project)
+
+**Before starting Discovery, invoke the `/clay-integrations` skill to check if Clay already has a native integration that solves the user's need.**
+
+When the user describes what they want (e.g., "find phone numbers", "get company emails"):
+
+1. Read `.claude/skills/clay-integrations/SKILL.md` for the full workflow
+2. Read `.claude/skills/clay-integrations/references/integrations-catalog.md` for the integration data
+3. Match their goal to native integrations using the Quick Reference Table in the skill
+4. If matches found → Show options with credits/BYOK, offer 3 choices (Native, Claygent, Hybrid)
+5. If no match → Skip check, proceed directly to Discovery
+
+**The `/clay-integrations` skill handles:**
+- Parsing the user's goal
+- Searching the integrations catalog
+- Showing formatted options
+- Handling all 3 user choices
+- Native integration setup instructions
+- Offering Claygent fallback after native setup
+
+**Only proceed to Discovery if:**
+- User chooses (B) Custom Claygent
+- User chooses (C) Hybrid approach
+- User chooses (A) Native AND wants a fallback Claygent
+- No native integrations match the user's goal
 
 ---
 
@@ -644,10 +675,15 @@ DO NOT wait for specific commands. DO NOT let user derail you. Always drive towa
 AutoClaygent/
 ├── CLAUDE.md              # This file
 ├── webhook_server.py      # Clay webhook receiver
+├── .claude/skills/        # Claude Code skills
+│   └── clay-integrations/ # Native integration checker
+│       ├── SKILL.md
+│       └── references/
+│           └── integrations-catalog.md
 ├── references/            # Reference files
 │   ├── clay-json-rules.md
 │   ├── clay-template.md
-│   └── clay-integrations.md
+│   ├── clay-integrations.md
 └── projects/              # User's Claygent projects
     └── {project-name}/
         ├── prompts/
@@ -666,7 +702,11 @@ AutoClaygent/
 
 - `references/clay-json-rules.md` - JSON schema constraints for Clay
 - `references/clay-template.md` - Link to Clay template
-- `references/clay-integrations.md` - Clay integrations catalog
+- `references/clay-integrations.md` - Clay integrations catalog (150+ native options)
+
+### Skills
+
+- `.claude/skills/clay-integrations/` - PRE-BUILD CHECK skill for native integrations
 
 ### Premium Content (Fetched from API)
 

@@ -41,7 +41,7 @@ Identify the core data need from what the user said:
 
 ### Step 2: Search the Integrations Catalog
 
-Read `references/integrations-catalog.md` and find integrations that match:
+Read `references/clay-integrations.md` (at the repo root) and find integrations that match:
 - The data type the user needs
 - The input data they have (domain, email, LinkedIn URL, name+company)
 
@@ -254,7 +254,7 @@ This skill returns one of:
 
 ## Reference File
 
-The full integrations catalog is at: `references/integrations-catalog.md`
+The full integrations catalog is at: `references/clay-integrations.md` (at the repo root).
 
 This contains 150+ Clay integrations with:
 - Credit costs (Clay-managed vs BYOK)

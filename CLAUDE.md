@@ -97,7 +97,7 @@ Questions? support@blueprintgtm.com
 
 
 ```bash
-ls references/clay-json-rules.md 2>/dev/null || echo "SKILLS_NEEDED"
+ls references/clay-json-rules.md .claude/skills/clay-integrations/SKILL.md 2>/dev/null || echo "SKILLS_NEEDED"
 ```
 
 **If SKILLS_NEEDED:** The reference files should already be bundled with AutoClaygent.
@@ -105,6 +105,7 @@ Check that you're in the AutoClaygent directory and these files exist:
 - `references/clay-json-rules.md`
 - `references/clay-template.md`
 - `references/clay-integrations.md`
+- `.claude/skills/clay-integrations/SKILL.md`
 
 If missing, re-download from: autoclaygent.blueprintgtm.com
 
@@ -473,7 +474,7 @@ What data do you need to find or enrich?
 When the user describes what they want (e.g., "find phone numbers", "get company emails"):
 
 1. Read `.claude/skills/clay-integrations/SKILL.md` for the full workflow
-2. Read `.claude/skills/clay-integrations/references/integrations-catalog.md` for the integration data
+2. Read `references/clay-integrations.md` for the integration data
 3. Match their goal to native integrations using the Quick Reference Table in the skill
 4. If matches found → Show options with credits/BYOK, offer 3 choices (Native, Claygent, Hybrid)
 5. If no match → Skip check, proceed directly to Discovery

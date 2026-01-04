@@ -27,7 +27,7 @@ cat .first_run_complete 2>/dev/null || echo "FIRST_RUN_NEEDED"
 cat license.key 2>/dev/null || echo "NO_LICENSE"
 ```
 
-**If NO_LICENSE or empty or contains "PASTE_YOUR_LICENSE_KEY_HERE":** Show purchase message and STOP:
+**If NO_LICENSE or empty or contains "PASTE_YOUR_LICENSE_KEY_HERE":** Ask for license key:
 
 ```
 Welcome to AutoClaygent!
@@ -36,18 +36,26 @@ This is a PAID product - part of Blueprint GTM by Jordan Crawford.
 
 To use AutoClaygent, you need a license key.
 
-Purchase at: https://autoclaygent.blueprintgtm.com
+Please paste your license key now (starts with CMB-).
 
-Already purchased? Your license key is in your Stripe receipt email.
-
-Setup:
-1. Open the file "license.key" in this folder
-2. Replace the placeholder text with your license key (starts with CMB-)
-3. Save the file
-4. Come back here and try again!
-
-Questions? support@blueprintgtm.com
+Don't have one? Purchase at: https://autoclaygent.blueprintgtm.com
+Already purchased? Check your Stripe receipt email.
 ```
+
+**Wait for user to paste their license key.**
+
+When user pastes a key that starts with `CMB-`:
+1. Save it to license.key:
+   ```bash
+   echo "USER_PROVIDED_KEY" > license.key
+   ```
+2. Confirm: "License key saved! Let me verify it..."
+3. Continue to Step 2 (mark first run complete)
+
+**If user says they don't have a key or asks where to get one:**
+- Direct them to https://autoclaygent.blueprintgtm.com
+- Tell them their key will be in the Stripe receipt email after purchase
+- Wait for them to come back with the key
 
 **DO NOT PROCEED without a valid license.**
 

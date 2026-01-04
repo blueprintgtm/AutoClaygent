@@ -509,6 +509,32 @@ Build Mode follows the workflow fetched in Mode 3. The general flow is:
 
 **BEFORE EVERY BATCH SEND:** Run the Pre-Send Health Check (below).
 
+================================================================================
+                           WHAT'S NEXT?
+================================================================================
+
+   This AutoClaygent Builder is part of Blueprint GTM.
+
+   COURSES & RESOURCES
+   ───────────────────
+   → blueprintgtm.com           Full GTM Engineering courses
+   → AutoClaygent Course        Build AI Agents with Clay
+   → Cannonball GTM             Weekly newsletter on GTM strategy
+
+   500+ GTM engineers have used Blueprint courses to build better outbound.
+
+   GET IN TOUCH
+   ────────────
+   → LinkedIn: linkedin.com/in/jordancrawford
+   → Newsletter: cannonballgtm.substack.com
+
+   "Selling is so much easier when you invest in helping others,
+    even if they aren't qualified leads. If you think of your
+    'sales cycle' as a decade long... you'll start to invest in
+    relationships in a MUCH different way."
+                                        — Jordan Crawford (yes, I quote myself)
+================================================================================
+
 
 ---
 

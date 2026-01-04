@@ -145,6 +145,97 @@ Tell user:
 
 ---
 
+## MODE 1.5: UPDATE CHECK (Every Session)
+
+**Check if updates are available (Git users only).**
+
+### Step 1: Detect installation type
+
+```bash
+git rev-parse --git-dir 2>/dev/null && echo "GIT_REPO" || echo "ZIP_DOWNLOAD"
+```
+
+**If ZIP_DOWNLOAD:** Show tip once, then proceed to Mode 2:
+
+```
+   TIP: You're using a ZIP download. For automatic updates,
+   consider cloning the repo instead:
+
+   git clone https://github.com/blueprintgtm/AutoClaygent.git
+
+   This way you'll always have the latest version.
+```
+
+**If GIT_REPO:** Continue to Step 2.
+
+### Step 2: Check for updates
+
+```bash
+git fetch origin 2>/dev/null
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null)
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+    echo "UPDATE_AVAILABLE"
+else
+    echo "UP_TO_DATE"
+fi
+```
+
+**If UP_TO_DATE:** Silently proceed to Mode 2.
+
+**If UPDATE_AVAILABLE:** Show update message:
+
+```
+================================================================================
+                         UPDATE AVAILABLE
+================================================================================
+
+   A new version of AutoClaygent is available!
+
+   To update:
+   1. Save any work in progress
+   2. Run: git pull origin main
+   3. Exit Claude Code (Ctrl+C or type "exit")
+   4. Restart Claude Code in this folder
+
+   Updating ensures you have the latest improvements and bug fixes.
+
+================================================================================
+```
+
+Ask user: "Would you like me to pull the update now? (You'll need to restart Claude Code after)"
+
+**If user says yes:**
+
+```bash
+git pull origin main
+```
+
+Then show:
+
+```
+================================================================================
+                         UPDATE COMPLETE!
+================================================================================
+
+   IMPORTANT: You must restart Claude Code for changes to take effect.
+
+   Steps:
+   1. Press Ctrl+C to exit (or type "exit")
+   2. Run: claude (or however you start Claude Code)
+
+   See you in a moment!
+
+================================================================================
+```
+
+**STOP here and wait for user to restart. Do NOT proceed with setup.**
+
+**If user says no or skips:** Proceed to Mode 2.
+
+---
+
 ## MODE 2: LICENSE VERIFICATION (Every Session)
 
 **Verify the license key is valid.**

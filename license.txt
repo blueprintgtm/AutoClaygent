@@ -1,0 +1,2 @@
+# Replace this line with your license key (starts with CMB-)
+PASTE_YOUR_LICENSE_KEY_HERE

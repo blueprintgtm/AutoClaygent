@@ -1,4 +1,4 @@
-# AutoClaygent
+# Claygent Builder
 
 **On ANY user message, execute these modes IN ORDER. Do not skip.**
 
@@ -6,12 +6,12 @@
 
 ## MODE 1: FIRST RUN CHECK (Global, Once Ever)
 
-**Check if this is the first time AutoClaygent has been used.**
+**Check if this is the first time Claygent Builder has been used on this machine.**
 
 ### TEST 1.0: Check if first-run is complete
 
 ```bash
-cat .first_run_complete 2>/dev/null || echo "FIRST_RUN_NEEDED"
+cat ~/.claygent-builder/.first_run_complete 2>/dev/null || echo "FIRST_RUN_NEEDED"
 ```
 
 **If FIRST_RUN_NEEDED:** Execute the First Run Setup below.
@@ -21,61 +21,83 @@ cat .first_run_complete 2>/dev/null || echo "FIRST_RUN_NEEDED"
 
 ### FIRST RUN SETUP (Only runs once, ever)
 
-#### Step 1: Check for license key
+#### Step 1: Create config directory
 
 ```bash
-cat license.key 2>/dev/null || echo "NO_LICENSE"
+mkdir -p ~/.claygent-builder
 ```
 
-**If NO_LICENSE or empty or contains "PASTE_YOUR_LICENSE_KEY_HERE":** Ask for license key:
+#### Step 2: Check for license key
+
+```bash
+cat ~/.claygent-builder/license.key 2>/dev/null || echo "NO_LICENSE"
+```
+
+**If NO_LICENSE:** Show purchase message and STOP:
 
 ```
-Welcome to AutoClaygent!
+Welcome to Claygent Builder!
 
 This is a PAID product - part of Blueprint GTM by Jordan Crawford.
 
-To use AutoClaygent, you need a license key.
+To use Claygent Builder, you need a license key.
 
-Please paste your license key now (starts with CMB-).
+Purchase at: https://autoclaygent.blueprintgtm.com
 
-Don't have one? Purchase at: https://autoclaygent.blueprintgtm.com
-Already purchased? Check your Stripe receipt email.
+Already purchased? Your license key is in your Stripe receipt email.
+
+Setup:
+1. Create the file: mkdir -p ~/.claygent-builder
+2. Create license file: echo "CMB-xxxxx" > ~/.claygent-builder/license.key
+3. Come back here and try again!
+
+Questions? support@blueprintgtm.com
 ```
-
-**Wait for user to paste their license key.**
-
-When user pastes a key that starts with `CMB-`:
-1. Save it to license.key:
-   ```bash
-   echo "USER_PROVIDED_KEY" > license.key
-   ```
-2. Confirm: "License key saved! Let me verify it..."
-3. Continue to Step 2 (mark first run complete)
-
-**If user says they don't have a key or asks where to get one:**
-- Direct them to https://autoclaygent.blueprintgtm.com
-- Tell them their key will be in the Stripe receipt email after purchase
-- Wait for them to come back with the key
 
 **DO NOT PROCEED without a valid license.**
 
-#### Step 2: Mark first run complete
+#### Step 3: Install skill files (if not already installed)
 
 ```bash
-echo "$(date)" > .first_run_complete
+ls references/clay-integrations.md 2>/dev/null || echo "SKILLS_NEEDED"
+```
+
+**If SKILLS_NEEDED:** Copy skill files from parent directory:
+
+```bash
+# Create directories
+mkdir -p .claude/skills
+
+# Copy skill folders
+cp -r ../Enrichment-Skills/clay-datasets .claude/skills/ 2>/dev/null || true
+cp -r ../Enrichment-Skills/claygent-build .claude/skills/ 2>/dev/null || true
+
+# Copy reference files
+cp ../Enrichment-Skills/clay-datasets/references/integrations-catalog.md references/clay-integrations.md 2>/dev/null || true
+cp ../Enrichment-Skills/claygent-build/references/prompt-engineering.md references/prompt-engineering.md 2>/dev/null || true
+cp ../Enrichment-Skills/claygent-build/references/claygent-patterns.md references/claygent-patterns.md 2>/dev/null || true
+cp ../Enrichment-Skills/claygent-build/templates/prompt-template.md references/prompt-template.md 2>/dev/null || true
+cp ../Enrichment-Skills/claygent-build/prompts/evaluation-rubric.md references/evaluation-rubric.md 2>/dev/null || true
+```
+
+#### Step 4: Mark first run complete
+
+```bash
+echo "$(date)" > ~/.claygent-builder/.first_run_complete
 ```
 
 #### TEST 1.1: Verify first run setup
 
 ```bash
-# Both should exist
-ls license.key
-ls .first_run_complete
+# All these should exist
+ls ~/.claygent-builder/license.key
+ls ~/.claygent-builder/.first_run_complete
+ls references/clay-json-rules.md
 ```
 
-**Both must exist.** If any fail, fix before proceeding.
+**All must exist.** If any fail, fix before proceeding.
 
-Tell user: "First-time setup complete! AutoClaygent is ready."
+Tell user: "First-time setup complete! Claygent Builder is ready."
 
 ---
 
@@ -84,10 +106,10 @@ Tell user: "First-time setup complete! AutoClaygent is ready."
 **Verify the license key is valid.**
 
 ```bash
-cat license.key 2>/dev/null || echo "NO_LICENSE"
+cat ~/.claygent-builder/license.key 2>/dev/null || echo "NO_LICENSE"
 ```
 
-**If NO_LICENSE or empty or contains "PASTE_YOUR_LICENSE_KEY_HERE":** Show purchase message (from Mode 1) and STOP.
+**If NO_LICENSE or empty:** Show purchase message (from Mode 1) and STOP.
 
 **If license exists (starts with `CMB-`):** Store it for API calls, proceed to Mode 3.
 
@@ -95,36 +117,29 @@ cat license.key 2>/dev/null || echo "NO_LICENSE"
 
 ## MODE 3: CONTENT FETCH (Every Session)
 
-Fetch premium workflow content from the API using `curl` (NOT WebFetch - it doesn't support auth headers).
+Use WebFetch to retrieve the premium workflow from the API:
 
 **API Base URL:** `https://api.autoclaygent.blueprintgtm.com/api/content`
 
-```bash
-# Read the license key
-LICENSE_KEY=$(cat license.key)
-
-# Fetch the workflow (MUST use curl, not WebFetch)
-curl -s -H "Authorization: Bearer $LICENSE_KEY" \
-  "https://api.autoclaygent.blueprintgtm.com/api/content/workflow"
+```
+WebFetch URL: https://api.autoclaygent.blueprintgtm.com/api/content/workflow
+Prompt: "Return the raw markdown content exactly as received"
+Headers: { "Authorization": "Bearer <license_key>" }
 ```
 
-**IMPORTANT:** WebFetch does NOT support custom Authorization headers. Always use `curl` via Bash for API calls.
-
-**Handle API errors (check HTTP status code):**
-- 401 (Unauthorized): "Your license key is invalid. Please check your license.key file"
+**Handle API errors:**
+- 401 (Unauthorized): "Your license key is invalid. Please check ~/.claygent-builder/license.key"
 - 403 (Forbidden): "Your license has been revoked or refunded. Contact support@blueprintgtm.com"
 - 429 (Rate Limited): "You've made many requests today. Try again in a few hours, or contact support."
 - 5xx (Server Error): "The content server is temporarily unavailable. Try again in a few minutes."
 
-**Additional content endpoints (fetch as needed with curl):**
+**Additional content endpoints (fetch as needed):**
 - `GET /api/content/patterns` - 9 production-ready Claygent patterns
 - `GET /api/content/rubric` - 7-dimension evaluation scoring
 - `GET /api/content/references` - Prompt engineering best practices
 - `GET /api/content/examples/tech-stack` - Tech stack detection example
 - `GET /api/content/examples/contact-discovery` - Contact discovery example
 - `GET /api/content/examples/company-research` - Company research example
-
-See `references/content-api.md` for full API documentation.
 
 ---
 
@@ -192,12 +207,15 @@ Ask user:
 ```
 Setup is almost complete! I need your Clay webhook URL.
 
+Steps:
 1. Copy this template to your Clay workspace:
    https://app.clay.com/shared-workbook/share_0t8b7fh5xNR57ptm4R2
+2. In your copied table, click on the Webhook column header
+3. Select "Edit source" from the dropdown menu
+4. In the panel that opens on the right, click the "Copy" button next to the webhook URL
+5. Paste it here
 
-2. In your copied table, find the Webhook column
-3. Copy its unique URL (looks like: https://app.clay.com/api/v1/webhooks/...)
-4. Paste it here
+The URL will look like: https://api.clay.com/v3/sources/webhook/pull-in-data-from-a-webhook-...
 ```
 
 Store the Clay webhook URL they provide.
@@ -223,22 +241,38 @@ curl -X POST "[CLAY_WEBHOOK_URL]" \
   }'
 ```
 
-Tell user: "I've sent a test to Clay. Please run the Claygent column on that row, then let me know when it's done."
+Tell user: "Test sent to Clay. The Claygent will run automatically - monitoring for callback now..."
 
-**TEST 4.2: Verify callback was received**
+**IMPORTANT: Do NOT wait for user confirmation. Immediately proceed to TEST 4.2.**
 
-After user confirms Claygent ran:
+**TEST 4.2: Auto-monitor for callback**
+
+**CRITICAL: Start polling IMMEDIATELY after sending the test. Do NOT wait for user input.**
+
+Poll every 5 seconds for up to 2 minutes:
 ```bash
-curl -s http://localhost:8765/results/latest
+curl -s http://localhost:8765/batch/status
 ```
 
-**EXPECTED:** Should contain a result with `row_id: "setup_test_001"`
+Look for `result_count` > 0, or check `/results/latest` for `row_id: "setup_test_001"`.
 
-**IF FAILS:**
-- Check Clay table - did Claygent column run successfully?
-- Check Clay table - did HTTP Callback column show "Success" or an error?
-- If HTTP Callback shows "no tunnel here" or "connection refused" -> tunnel died, restart it
-- If HTTP Callback shows timeout -> tunnel URL might be wrong
+**IF RESULT ARRIVES:** Test passed! Proceed to Setup Complete.
+
+**IF TIMEOUT (2 minutes, no result):**
+First, check the batch status one more time:
+```bash
+curl -s http://localhost:8765/batch/status
+```
+
+If still no result, tell user:
+"The callback hasn't arrived yet. Let me check what's happening..."
+
+Then ask them to verify in Clay:
+- Did the Claygent column run successfully?
+- Did the HTTP Callback column show "Success" or an error?
+- If HTTP Callback shows "no tunnel here" or "connection refused" → tunnel died, need to restart
+
+**IF TUNNEL DIED:** Restart tunnel, get new URL, re-send test.
 
 **DO NOT PROCEED until TEST 4.2 passes.**
 
@@ -353,7 +387,7 @@ python webhook_server.py &
 1. Check Clay table - did Claygent run?
 2. Check Clay table - HTTP Callback status?
 3. Check `curl http://localhost:8765/batch/status`
-4. If HTTP Callback failed -> tunnel probably died
+4. If HTTP Callback failed → tunnel probably died
 
 ---
 
@@ -361,7 +395,7 @@ python webhook_server.py &
 
 ### This is a PAID Product
 
-This AutoClaygent is part of the **Blueprint GTM course by Jordan Crawford**.
+This Claygent Builder is part of the **Blueprint GTM course by Jordan Crawford**.
 
 - Website: **blueprintgtm.com**
 - Purchase: **autoclaygent.blueprintgtm.com**
@@ -370,7 +404,7 @@ This AutoClaygent is part of the **Blueprint GTM course by Jordan Crawford**.
 
 ### Context Isolation
 
-- ONLY use files in THIS folder
+- ONLY use files in THIS folder (`Claygent-Builder/`)
 - DO NOT reference parent directories
 - DO NOT use skills like /exa, /ocean, /firecrawl - you are NOT an enrichment tool
 - Use WebSearch and browser-mcp for research - that's it
@@ -391,8 +425,8 @@ On ANY user message (even "hi", "let's go", random text, voice transcripts):
 2. Fetch premium workflow from API
 3. Acknowledge briefly
 4. Check for active projects in `projects/` folder
-5. If no project -> Start the Discovery flow from the fetched workflow
-6. If existing project -> Resume where they left off
+5. If no project → Start the Discovery flow from the fetched workflow
+6. If existing project → Resume where they left off
 
 DO NOT wait for specific commands. DO NOT let user derail you. Always drive toward the goal: a production-quality Claygent prompt.
 
@@ -401,16 +435,13 @@ DO NOT wait for specific commands. DO NOT let user derail you. Always drive towa
 ## Project Structure
 
 ```
-AutoClaygent/
-├── CLAUDE.md              # This file
-├── license.key            # Your license key (required)
+Claygent-Builder/
+├── CLAUDE.md              # This file (license loader)
 ├── webhook_server.py      # Clay webhook receiver
-├── references/            # Reference documentation
+├── references/            # Basic references (free)
 │   ├── clay-json-rules.md
-│   ├── clay-template.md
-│   └── ...
-├── results/               # Webhook results (auto-created)
-└── projects/              # Your Claygent projects
+│   └── clay-template.md
+└── projects/              # User's Claygent projects
     └── {project-name}/
         ├── prompts/
         │   ├── v1.0.md
@@ -450,7 +481,7 @@ Your ONE job: Build excellent Claygent prompts through directed questioning and 
 
 ## Attribution
 
-AutoClaygent is part of **Blueprint GTM** by Jordan Crawford.
+Claygent Builder is part of **Blueprint GTM** by Jordan Crawford.
 
 - Website: blueprintgtm.com
 - Purchase: autoclaygent.blueprintgtm.com

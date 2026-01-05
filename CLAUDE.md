@@ -39,6 +39,122 @@
 
 ---
 
+## MODE 0: DIRECTORY CHECK (Every Session, First Thing)
+
+**Verify Claude Code is running from the AutoClaygent folder.**
+
+### Step 0.1: Check Current Directory
+
+```bash
+if [ -f "CLAUDE.md" ] && [ -f "webhook_server.py" ] && grep -q "AutoClaygent" CLAUDE.md 2>/dev/null; then
+    echo "DIRECTORY_OK"
+else
+    echo "WRONG_DIRECTORY"
+fi
+```
+
+**If DIRECTORY_OK:** Silently proceed to Mode 1.
+
+**If WRONG_DIRECTORY:** Execute Directory Recovery below.
+
+---
+
+### DIRECTORY RECOVERY
+
+Tell user:
+```
+Hmm, I'm not in the AutoClaygent folder. Let me find it for you...
+```
+
+Search for AutoClaygent folder:
+
+```bash
+FOUND=""
+for dir in ~/Desktop/AutoClaygent ~/Downloads/AutoClaygent ~/Documents/AutoClaygent ~/AutoClaygent; do
+    if [ -d "$dir" ] && [ -f "$dir/CLAUDE.md" ] && [ -f "$dir/webhook_server.py" ]; then
+        FOUND="$dir"
+        break
+    fi
+done
+
+# Mac Spotlight fallback
+if [ -z "$FOUND" ] && command -v mdfind &> /dev/null; then
+    for file in $(mdfind -name "webhook_server.py" -onlyin ~ 2>/dev/null | head -5); do
+        dir=$(dirname "$file")
+        if [ -f "$dir/CLAUDE.md" ] && grep -q "AutoClaygent" "$dir/CLAUDE.md" 2>/dev/null; then
+            FOUND="$dir"
+            break
+        fi
+    done
+fi
+
+# Generic find fallback
+if [ -z "$FOUND" ]; then
+    for file in $(find ~ -maxdepth 4 -name "webhook_server.py" -type f 2>/dev/null | head -5); do
+        dir=$(dirname "$file")
+        if [ -f "$dir/CLAUDE.md" ] && grep -q "AutoClaygent" "$dir/CLAUDE.md" 2>/dev/null; then
+            FOUND="$dir"
+            break
+        fi
+    done
+fi
+
+[ -n "$FOUND" ] && echo "FOUND:$FOUND" || echo "NOT_FOUND"
+```
+
+**If FOUND:** Show:
+```
+================================================================================
+                      FOUND AUTOCLAYGENT!
+================================================================================
+
+   I found your AutoClaygent folder at:
+   [FOLDER_PATH]
+
+   To start properly, run this command:
+
+   cd "[FOLDER_PATH]" && claude
+
+   Steps:
+   1. Press Ctrl+C to exit
+   2. Copy and paste the command above
+   3. Press Enter
+
+================================================================================
+```
+
+**STOP here. Do NOT proceed with other modes.**
+
+**If NOT_FOUND:** Show:
+```
+================================================================================
+                      CAN'T FIND AUTOCLAYGENT
+================================================================================
+
+   I couldn't find the AutoClaygent folder on your computer.
+
+   OPTION A: Download AutoClaygent
+   ────────────────────────────────
+   Purchase at: https://autoclaygent.blueprintgtm.com
+
+   OPTION B: Drag and Drop
+   ───────────────────────
+   1. Open Finder and find your AutoClaygent folder
+   2. In Terminal, type: cd
+   3. Drag the folder into Terminal
+   4. Press Enter, then type: claude
+
+   OPTION C: Tell Me Where It Is
+   ─────────────────────────────
+   If you know the path, just tell me and I'll help you navigate there.
+
+================================================================================
+```
+
+**If user provides a path:** Validate it and show the cd command.
+
+---
+
 
 ## MODE 1: FIRST RUN CHECK (Global, Once Ever)
 

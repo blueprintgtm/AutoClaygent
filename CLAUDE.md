@@ -404,57 +404,213 @@ This phase ensures the infrastructure works end-to-end. DO NOT skip any steps.
 
 ---
 
-### SETUP STEP 1: Start Webhook Server
+### SETUP STEP 1: Check Supabase Configuration
+
+**Check if Supabase is already configured for this machine.**
 
 ```bash
-# Kill any existing server
-pkill -f "webhook_server.py" 2>/dev/null || true
-
-# Start webhook server in background
-python webhook_server.py &
+cat ~/.claygent-builder/supabase_project_id 2>/dev/null || echo "NOT_CONFIGURED"
 ```
 
-Run in background mode.
-
-**TEST 1.1: Verify server is running**
-```bash
-curl -s http://localhost:8765/health
-```
-
-**EXPECTED:** `{"status": "ok", "timestamp": "..."}`
-
-**IF FAILS:** Check Python is installed, check you're in the right directory, check port 8765 isn't in use.
-
-**DO NOT PROCEED until TEST 1.1 passes.**
+**If NOT_CONFIGURED:** Execute the Supabase Setup flow below.
+**If project_id exists:** Skip to Step 2 (Verify Supabase Connection).
 
 ---
 
-### SETUP STEP 2: Start Tunnel
+### SUPABASE SETUP (One-Time, ~5 minutes)
 
-Start tunnel using Bash tool with `run_in_background: true`:
+**This replaces the old unreliable SSH tunnel approach. Users set up Supabase ONCE, then Clay callbacks are 100% reliable forever.**
 
-```bash
-ssh -o StrictHostKeyChecking=no -R 80:localhost:8765 nokey@localhost.run
+Tell user:
+```
+================================================================================
+                    SUPABASE SETUP (One-Time, ~5 minutes)
+================================================================================
+
+I'll set everything up for you automatically! But first, I need you to connect
+your Supabase project to Claude Code.
+
+STEP 1: Create a Supabase Project (if you don't have one)
+─────────────────────────────────────────────────────────
+1. Go to: https://supabase.com/dashboard
+2. Sign in (or create free account - no credit card needed)
+3. Click "New Project" and name it "autoclaygent" (or anything)
+4. Set a database password and click "Create new project"
+5. Wait ~2 minutes for it to initialize
+
+STEP 2: Get Your Supabase Access Token
+──────────────────────────────────────
+1. Go to: https://supabase.com/dashboard/account/tokens
+2. Click "Generate new token"
+3. Name it "Claude Code" and click "Generate token"
+4. COPY the token (starts with "sbp_") - you'll only see it once!
+
+STEP 3: Set Up Supabase MCP in Claude Code
+──────────────────────────────────────────
+1. Open your Claude Code settings file. On Mac:
+   ~/.claude/mcp.json
+
+   On Windows:
+   %APPDATA%\Claude\mcp.json
+
+2. Add this configuration (create the file if it doesn't exist):
+
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server"],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+
+3. Replace "sbp_YOUR_TOKEN_HERE" with the token you copied
+4. Save the file
+
+STEP 4: Restart Claude Code
+───────────────────────────
+After saving the config file:
+1. Press Ctrl+C to exit Claude Code
+2. Run: claude
+3. Come back to this folder and say "continue setup"
+
+================================================================================
 ```
 
-Wait 5 seconds, then check the task output for the URL (looks like `https://abc123.lhr.life`).
-
-Store this URL - you'll need it for tests.
-
-**TEST 2.1: Verify tunnel is alive**
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://[TUNNEL_URL]/health
-```
-
-**EXPECTED:** `200`
-
-**IF FAILS:** Tunnel died or URL is wrong. Restart tunnel, get new URL.
-
-**DO NOT PROCEED until TEST 2.1 passes.**
+**STOP here and wait for user to restart Claude Code with MCP configured.**
 
 ---
 
-### SETUP STEP 3: Get Clay Webhook URL from User
+### SETUP STEP 2: Verify Supabase MCP Connection
+
+**After user says "continue setup" or similar, verify MCP is working.**
+
+Use `mcp__supabase__list_projects` to check the connection:
+
+**If MCP works (returns project list):**
+- Tell user: "Supabase connected! Let me set everything up..."
+- Proceed to Step 3
+
+**If MCP fails (error or no tool available):**
+- Tell user: "I can't connect to Supabase. Let's check your setup..."
+- Guide them through troubleshooting:
+  1. Did you restart Claude Code after editing mcp.json?
+  2. Is the access token correct (starts with "sbp_")?
+  3. Is the mcp.json file in the right location?
+
+---
+
+### SETUP STEP 3: Create Supabase Infrastructure (Claude Does This Automatically)
+
+**Claude creates the database table and Edge Function using MCP tools.**
+
+Tell user: "Setting up your Supabase infrastructure now..."
+
+#### Step 3a: Get Project ID
+
+Ask user which Supabase project to use (from the list returned by `list_projects`).
+
+Save the project_id for later:
+```bash
+mkdir -p ~/.claygent-builder
+echo "[PROJECT_ID]" > ~/.claygent-builder/supabase_project_id
+```
+
+#### Step 3b: Create Database Table
+
+Use `mcp__supabase__apply_migration` with:
+- project_id: [the user's project]
+- name: "create_claygent_results_table"
+- query:
+```sql
+CREATE TABLE IF NOT EXISTS claygent_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_id TEXT NOT NULL,
+  row_id TEXT,
+  prompt_version TEXT,
+  claygent_output JSONB,
+  raw_payload JSONB,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ DEFAULT now() + interval '24 hours'
+);
+
+CREATE INDEX IF NOT EXISTS idx_claygent_results_batch_id ON claygent_results(batch_id);
+
+ALTER TABLE claygent_results ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow_all_insert" ON claygent_results FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "allow_recent_select" ON claygent_results FOR SELECT TO anon USING (expires_at > now());
+```
+
+Tell user: "Database table created..."
+
+#### Step 3c: Deploy Edge Function
+
+Use `mcp__supabase__deploy_edge_function` with:
+- project_id: [the user's project]
+- name: "claygent-webhook"
+- entrypoint_path: "index.ts"
+- verify_jwt: false (Clay callbacks can't add auth headers)
+- files:
+```json
+[
+  {
+    "name": "index.ts",
+    "content": "import { createClient } from \"https://esm.sh/@supabase/supabase-js@2\";\n\nconst corsHeaders = {\n  \"Access-Control-Allow-Origin\": \"*\",\n  \"Access-Control-Allow-Headers\": \"authorization, x-client-info, apikey, content-type\",\n};\n\nDeno.serve(async (req) => {\n  if (req.method === \"OPTIONS\") {\n    return new Response(\"ok\", { headers: corsHeaders });\n  }\n\n  if (req.method === \"GET\") {\n    return new Response(\n      JSON.stringify({ status: \"ok\", timestamp: new Date().toISOString() }),\n      { headers: { ...corsHeaders, \"Content-Type\": \"application/json\" } }\n    );\n  }\n\n  try {\n    const payload = await req.json();\n\n    const supabase = createClient(\n      Deno.env.get(\"SUPABASE_URL\")!,\n      Deno.env.get(\"SUPABASE_SERVICE_ROLE_KEY\")!\n    );\n\n    const { data, error } = await supabase\n      .from(\"claygent_results\")\n      .insert({\n        batch_id: payload.batch_id || \"unknown\",\n        row_id: payload.row_id,\n        prompt_version: payload.prompt_version,\n        claygent_output: payload.claygent_output || payload.response,\n        raw_payload: payload,\n      })\n      .select()\n      .single();\n\n    if (error) throw error;\n\n    return new Response(\n      JSON.stringify({ status: \"received\", batch_id: payload.batch_id, id: data.id }),\n      { headers: { ...corsHeaders, \"Content-Type\": \"application/json\" } }\n    );\n  } catch (err) {\n    return new Response(\n      JSON.stringify({ error: String(err) }),\n      { status: 500, headers: { ...corsHeaders, \"Content-Type\": \"application/json\" } }\n    );\n  }\n});"
+  }
+]
+```
+
+Tell user: "Edge Function deployed..."
+
+#### Step 3d: Save Callback URL
+
+Get the project URL using `mcp__supabase__get_project_url` and construct the callback URL:
+
+```bash
+echo "https://[PROJECT_REF].supabase.co/functions/v1/claygent-webhook" > ~/.claygent-builder/callback_url
+```
+
+Tell user:
+```
+================================================================================
+                         SUPABASE SETUP COMPLETE!
+================================================================================
+
+   ✓ Database table created: claygent_results
+   ✓ Edge Function deployed: claygent-webhook
+
+   Your callback URL is:
+   https://[PROJECT_REF].supabase.co/functions/v1/claygent-webhook
+
+   This URL will NEVER change. No more tunnel drops!
+
+   Your credentials are saved at: ~/.claygent-builder/
+   You won't need to do this setup again.
+
+================================================================================
+```
+
+---
+
+### SETUP STEP 4: Generate Session Batch ID
+
+Generate a unique batch_id for this session:
+
+```bash
+BATCH_ID="session_$(date +%Y%m%d_%H%M%S)_$RANDOM"
+echo "$BATCH_ID" > ~/.claygent-builder/current_batch_id
+echo "$BATCH_ID"
+```
+
+Store this batch_id - ALL webhooks in this session will use it.
+
+---
+
+### SETUP STEP 5: Get Clay Webhook URL from User
 
 Ask user:
 ```
@@ -475,41 +631,49 @@ Store the Clay webhook URL they provide.
 
 ---
 
-### SETUP STEP 4: Test Full Round-Trip
+### SETUP STEP 6: Test Full Round-Trip
 
-This is the CRITICAL test. Send a test payload and verify the callback comes back.
+This is the CRITICAL test. Send a test payload and verify the callback arrives in Supabase.
 
-**TEST 4.1: Send test payload to Clay**
+**Read stored values first:**
+```bash
+CALLBACK_URL=$(cat ~/.claygent-builder/callback_url)
+BATCH_ID=$(cat ~/.claygent-builder/current_batch_id)
+echo "Callback: $CALLBACK_URL"
+echo "Batch: $BATCH_ID"
+```
+
+**TEST 6.1: Send test payload to Clay**
 
 ```bash
 curl -X POST "[CLAY_WEBHOOK_URL]" \
   -H "Content-Type: application/json" \
   -d '{
     "row_id": "setup_test_001",
+    "batch_id": "[BATCH_ID]",
     "prompt": "This is a setup test. Simply respond with: {\"test\": \"success\", \"confidence\": \"high\"}",
     "prompt_version": "setup-test-v1.0",
     "change_log": "Setup verification test",
-    "callback_url": "[TUNNEL_URL]/webhook",
-    "reference_json_text": "PASTE THIS INTO CLAY JSON OUTPUT:\n{\"type\": \"object\", \"properties\": {\"test\": {\"type\": \"string\"}, \"confidence\": {\"type\": \"string\"}}, \"required\": [\"test\", \"confidence\"], \"additionalProperties\": false}"
+    "callback_url": "[CALLBACK_URL]"
   }'
 ```
 
 Tell user: "Test sent to Clay. The Claygent will run automatically - monitoring for callback now..."
 
-**IMPORTANT: Do NOT wait for user confirmation. Immediately proceed to TEST 4.2.**
+**IMPORTANT: Do NOT wait for user confirmation. Immediately proceed to TEST 6.2.**
 
-**TEST 4.2: Auto-monitor for callback**
+**TEST 6.2: Auto-monitor for callback using Supabase MCP**
 
 **CRITICAL: Start polling IMMEDIATELY after sending the test. Do NOT wait for user input.**
 
-Poll every 5 seconds for up to 2 minutes:
+Poll every 5 seconds for up to 2 minutes using `mcp__supabase__execute_sql`:
 
-```bash
-# Poll for result
-curl -s http://localhost:8765/batch/status
+```sql
+SELECT * FROM claygent_results
+WHERE batch_id = '[BATCH_ID]'
+ORDER BY created_at DESC
+LIMIT 1;
 ```
-
-Look for `result_count` > 0, or check `/results/latest` for `row_id: "setup_test_001"`.
 
 **While polling, show personality with rotating messages:**
 
@@ -530,25 +694,20 @@ LOADING_MESSAGES (rotate through these while waiting):
 - "[Loading message] (15/120s)"
 - "Got it!" when result arrives
 
-**IF RESULT ARRIVES:** Test passed! Proceed to Setup Complete.
+**IF RESULT ARRIVES (row returned from query):** Test passed! Proceed to Setup Complete.
 
 **IF TIMEOUT (2 minutes, no result):**
-First, check the batch status one more time:
-```bash
-curl -s http://localhost:8765/batch/status
-```
-
-If still no result, tell user:
+Poll one more time, then tell user:
 "The callback hasn't arrived yet. Let me check what's happening..."
 
 Then ask them to verify in Clay:
 - Did the Claygent column run successfully?
 - Did the HTTP Callback column show "Success" or an error?
-- If HTTP Callback shows "no tunnel here" or "connection refused" → tunnel died, need to restart
+- If HTTP Callback shows an error, check the Supabase Edge Function logs
 
-**IF TUNNEL DIED:** Restart tunnel, get new URL, re-send test.
+**Use `mcp__supabase__get_logs` with service: "edge-function" to check for errors.**
 
-**DO NOT PROCEED until TEST 4.2 passes.**
+**DO NOT PROCEED until TEST 6.2 passes.**
 
 ---
 
@@ -561,7 +720,7 @@ Once ALL tests pass, tell user:
                          SETUP COMPLETE!
 ================================================================================
 
-   Server: Running      Tunnel: Connected      Clay: Verified
+   Supabase: Connected      Edge Function: Deployed      Clay: Verified
 
    You're ready to build Claygents that actually work.
 
@@ -656,26 +815,28 @@ Build Mode follows the workflow fetched in Mode 3. The general flow is:
 
 ## WEBHOOK PAYLOAD STRUCTURE (MANDATORY - NO EXCEPTIONS)
 
-Every webhook to Clay MUST have EXACTLY these 6 fields:
+Every webhook to Clay MUST have EXACTLY these 7 fields:
 
 ```json
 {
   "row_id": "test_001",
+  "batch_id": "[SESSION_BATCH_ID]",
   "prompt": "# Full Claygent Prompt\n\nGiven this company:\n- Domain: example.com\n\n[Full instructions...]\n\nOutput JSON with these fields:\n- field_1: ...\n- confidence: high/medium/low",
   "prompt_version": "pricing-detector-v1.0",
   "change_log": "Initial version",
-  "callback_url": "https://[your-tunnel-url]/webhook",
+  "callback_url": "https://[PROJECT_REF].supabase.co/functions/v1/claygent-webhook",
   "reference_json_text": "PASTE THIS INTO CLAY JSON OUTPUT:\n{\"type\": \"object\", \"properties\": {\"field_1\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}]}, \"confidence\": {\"type\": \"string\", \"enum\": [\"high\", \"medium\", \"low\"]}}, \"required\": [\"field_1\", \"confidence\"], \"additionalProperties\": false}"
 }
 ```
 
 ### VALIDATION CHECKLIST (Before EVERY send)
 
-- [ ] `row_id` - Unique identifier
+- [ ] `row_id` - Unique identifier for this row
+- [ ] `batch_id` - Session batch ID (from ~/.claygent-builder/current_batch_id)
 - [ ] `prompt` - COMPLETE prompt with domain EMBEDDED in text (NOT as separate field)
 - [ ] `prompt_version` - Version string like "pricing-v1.0"
 - [ ] `change_log` - What changed (or "Initial version")
-- [ ] `callback_url` - Current tunnel URL + "/webhook"
+- [ ] `callback_url` - Supabase Edge Function URL (from ~/.claygent-builder/callback_url)
 - [ ] `reference_json_text` - JSON schema as TEXT, prefixed with "PASTE THIS INTO CLAY JSON OUTPUT:"
 
 
@@ -688,10 +849,11 @@ Every webhook to Clay MUST have EXACTLY these 6 fields:
 ```json
 {
   "row_id": "test_001",
+  "batch_id": "session_20260113_143000_12345",
   "prompt": "Given the company domain: slack.com\n\nResearch this company...",
   "prompt_version": "pricing-v1.0",
   "change_log": "Initial version",
-  "callback_url": "https://abc123.lhr.life/webhook"
+  "callback_url": "https://abcdefgh.supabase.co/functions/v1/claygent-webhook"
 }
 ```
 
@@ -702,18 +864,22 @@ Every webhook to Clay MUST have EXACTLY these 6 fields:
 **Before sending ANY batch of test data, run these checks:**
 
 ```bash
-# Check 1: Server alive
-curl -s http://localhost:8765/health
+# Check 1: Verify Supabase project_id is stored
+cat ~/.claygent-builder/supabase_project_id
 
-# Check 2: Tunnel alive
-curl -s -o /dev/null -w "%{http_code}" https://[TUNNEL_URL]/health
+# Check 2: Verify callback URL is stored
+cat ~/.claygent-builder/callback_url
+
+# Check 3: Verify batch ID is set for this session
+cat ~/.claygent-builder/current_batch_id
 ```
 
-**Both must pass.** If tunnel fails (connection refused, "no tunnel here"):
-1. Start NEW tunnel
-2. Get NEW URL
-3. Update your stored callback_url
-4. Re-run checks
+**All must exist.** If any are missing:
+1. Re-run Supabase setup (Mode 2/4)
+2. Generate new batch ID for the session
+
+**Optionally verify Edge Function is responding:**
+Use `mcp__supabase__get_logs` with service: "edge-function" to check for recent activity.
 
 ---
 
@@ -721,32 +887,22 @@ curl -s -o /dev/null -w "%{http_code}" https://[TUNNEL_URL]/health
 
 **Show these messages with personality when recovering:**
 
-### "no tunnel here" Error
+### Edge Function Errors
+
+If `mcp__supabase__get_logs` shows errors:
 
 Tell user:
 ```
-   Tunnel dropped. No worries — this happens.
-   (Even the best infrastructure needs a coffee break sometimes.)
+   The Edge Function hit an error. Let me check the logs...
 
-   Restarting tunnel now...
+   (Unlike tunnel drops, this is actually fixable!)
 ```
 
-Then start a NEW tunnel, get NEW URL, update callback_url.
+Then check the logs using `mcp__supabase__get_logs` with service: "edge-function".
 
-### Webhook Server Not Responding
-
-Tell user:
-```
-   Server isn't responding. Let me restart it.
-
-   (Unlike hiring more SDRs, this actually fixes the problem.)
-```
-
-Then:
-```bash
-pkill -f "webhook_server.py" 2>/dev/null || true
-python webhook_server.py &
-```
+Common issues:
+- Database connection error → Check if table exists
+- Permission denied → Check RLS policies
 
 ### Results Not Coming Back / Clay Timeout
 
@@ -765,8 +921,14 @@ Tell user:
 Then check:
 1. Check Clay table - did Claygent run?
 2. Check Clay table - HTTP Callback status?
-3. Check `curl http://localhost:8765/batch/status`
-4. If HTTP Callback failed → tunnel probably died
+3. Use `mcp__supabase__execute_sql` to check for results:
+   ```sql
+   SELECT * FROM claygent_results
+   WHERE batch_id = '[BATCH_ID]'
+   ORDER BY created_at DESC
+   LIMIT 5;
+   ```
+4. If HTTP Callback failed → Check Edge Function logs with `mcp__supabase__get_logs`
 
 ---
 

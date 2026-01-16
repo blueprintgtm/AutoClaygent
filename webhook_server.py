@@ -272,7 +272,20 @@ def main():
 
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║           Claygent Builder - Webhook Server                  ║
+║                   ⚠️  DEPRECATION NOTICE ⚠️                    ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  This local webhook server is DEPRECATED.                    ║
+║                                                              ║
+║  AutoClaygent now uses Supabase Edge Functions instead.     ║
+║  This provides reliable callbacks without tunnel drops.      ║
+║                                                              ║
+║  See CLAUDE.md Mode 2 for Supabase setup instructions.       ║
+║                                                              ║
+║  This server is only for offline/airgapped environments.     ║
+║                                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║           Claygent Builder - Webhook Server (Legacy)         ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Listening on: http://{args.host}:{args.port}                      ║
 ║                                                              ║
@@ -281,9 +294,6 @@ def main():
 ║    GET  /batch/status   - Check batch progress               ║
 ║    POST /batch/complete - Finalize batch                     ║
 ║    GET  /results/latest - Get latest results                 ║
-║                                                              ║
-║  Next step: Expose this server with localhost.run            ║
-║    ssh -R 80:localhost:{args.port} nokey@localhost.run           ║
 ╚══════════════════════════════════════════════════════════════╝
 """)
 

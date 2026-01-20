@@ -459,7 +459,7 @@ STEP 3: Set Up Supabase MCP in Claude Code
   "mcpServers": {
     "supabase": {
       "command": "npx",
-      "args": ["-y", "@supabase/mcp-server"],
+      "args": ["-y", "@supabase/mcp-server-supabase@latest"],
       "env": {
         "SUPABASE_ACCESS_TOKEN": "sbp_YOUR_TOKEN_HERE"
       }

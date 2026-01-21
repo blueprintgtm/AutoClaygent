@@ -445,37 +445,39 @@ STEP 2: Get Your Supabase Access Token
 3. Name it "Claude Code" and click "Generate token"
 4. COPY the token (starts with "sbp_") - you'll only see it once!
 
-STEP 3: Set Up Supabase MCP in Claude Code
-──────────────────────────────────────────
-1. Open your Claude Code settings file. On Mac:
-   ~/.claude/mcp.json
+STEP 3: Connect Supabase to Claude Code
+───────────────────────────────────────
+Open a new terminal window (separate from Claude Code) and paste this command:
 
-   On Windows:
-   %APPDATA%\Claude\mcp.json
+   claude mcp add supabase -- npx -y @supabase/mcp-server-supabase@latest --access-token PASTE_YOUR_TOKEN_HERE
 
-2. Add this configuration (create the file if it doesn't exist):
+Before pressing Enter:
+→ Replace PASTE_YOUR_TOKEN_HERE with the token you copied
+→ Your token should start with "sbp_"
 
-{
-  "mcpServers": {
-    "supabase": {
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest"],
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_YOUR_TOKEN_HERE"
-      }
-    }
-  }
-}
-
-3. Replace "sbp_YOUR_TOKEN_HERE" with the token you copied
-4. Save the file
+Press Enter. You'll see a success message if it worked.
 
 STEP 4: Restart Claude Code
 ───────────────────────────
-After saving the config file:
-1. Press Ctrl+C to exit Claude Code
-2. Run: claude
-3. Come back to this folder and say "continue setup"
+Now go back to your Claude Code window and:
+1. Press Ctrl+C (this closes Claude Code)
+2. Type: claude (this restarts it)
+3. Navigate back to your AutoClaygent folder
+4. Tell Claude: "continue setup"
+
+NOT WORKING? Try this:
+──────────────────────
+Open a terminal and type:
+
+   claude mcp list
+
+Look for a line like:
+   supabase: ... ✓ Connected
+
+If you see ✗ Failed or don't see "supabase" at all:
+1. Double-check your token (should start with "sbp_")
+2. Run the Step 3 command again with the correct token
+3. Restart Claude Code one more time
 
 ================================================================================
 ```
@@ -497,9 +499,11 @@ Use `mcp__supabase__list_projects` to check the connection:
 **If MCP fails (error or no tool available):**
 - Tell user: "I can't connect to Supabase. Let's check your setup..."
 - Guide them through troubleshooting:
-  1. Did you restart Claude Code after editing mcp.json?
-  2. Is the access token correct (starts with "sbp_")?
-  3. Is the mcp.json file in the right location?
+  1. Ask them to run `claude mcp list` in their terminal
+  2. Look for "supabase: ... ✓ Connected" in the output
+  3. If they see ✗ Failed: Have them check their token starts with "sbp_"
+  4. If supabase isn't listed: Have them re-run the Step 3 command
+  5. Always restart Claude Code after fixing anything
 
 ---
 

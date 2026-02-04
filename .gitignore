@@ -1,7 +1,10 @@
 # Session files (created during usage)
 .first_run_complete
 results/
-projects/
+
+# Ignore user-created projects, but allow bonus projects
+projects/*
+!projects/technology-finder/
 
 # Don't track actual license keys (only the placeholder)
 # Note: license.key placeholder IS tracked, but if modified with real key, ignore changes

@@ -369,29 +369,35 @@ cat ~/.claygent-builder/license.key 2>/dev/null || echo "NO_LICENSE"
 
 ## MODE 3: CONTENT FETCH (Every Session)
 
-Use WebFetch to retrieve the premium workflow from the API:
+Use curl to retrieve the premium workflow from the API (more reliable than WebFetch for authenticated requests):
 
 **API Base URL:** `https://api.autoclaygent.blueprintgtm.com/api/content`
 
-```
-WebFetch URL: https://api.autoclaygent.blueprintgtm.com/api/content/workflow
-Prompt: "Return the raw markdown content exactly as received"
-Headers: { "Authorization": "Bearer <license_key>" }
+### Fetch Workflow Content
+
+```bash
+LICENSE_KEY=$(cat ~/.claygent-builder/license.key 2>/dev/null)
+curl -s -w "\n%{http_code}" \
+  -H "Authorization: Bearer $LICENSE_KEY" \
+  "https://api.autoclaygent.blueprintgtm.com/api/content/workflow"
 ```
 
-**Handle API errors:**
-- 401 (Unauthorized): "Your license key is invalid. Please check ~/.claygent-builder/license.key"
-- 403 (Forbidden): "Your license has been revoked or refunded. Contact support@blueprintgtm.com"
-- 429 (Rate Limited): "You've made many requests today. Try again in a few hours, or contact support."
-- 5xx (Server Error): "The content server is temporarily unavailable. Try again in a few minutes."
+**Parse the response:** The last line is the HTTP status code, everything before it is the content.
 
-**Additional content endpoints (fetch as needed):**
-- `GET /api/content/patterns` - 9 production-ready Claygent patterns
-- `GET /api/content/rubric` - 7-dimension evaluation scoring
-- `GET /api/content/references` - Prompt engineering best practices
-- `GET /api/content/examples/tech-stack` - Tech stack detection example
-- `GET /api/content/examples/contact-discovery` - Contact discovery example
-- `GET /api/content/examples/company-research` - Company research example
+**Handle HTTP status codes:**
+- **200**: Success - follow the workflow instructions in the response
+- **401**: "Your license key is invalid. Please check ~/.claygent-builder/license.key"
+- **403**: "Your license has been revoked or refunded. Contact support@blueprintgtm.com"
+- **429**: "You've made many requests today. Try again in a few hours, or contact support."
+- **5xx**: "The content server is temporarily unavailable. Try again in a few minutes."
+
+**Additional content endpoints (fetch as needed using same curl pattern):**
+- `/api/content/patterns` - 9 production-ready Claygent patterns
+- `/api/content/rubric` - 7-dimension evaluation scoring
+- `/api/content/references` - Prompt engineering best practices
+- `/api/content/examples/tech-stack` - Tech stack detection example
+- `/api/content/examples/contact-discovery` - Contact discovery example
+- `/api/content/examples/company-research` - Company research example
 
 ---
 
